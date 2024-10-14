@@ -79,6 +79,8 @@ void Drawchess(int X, int Y, bool color) {
 int Count_and_block_to_score(int count, int block) {
     if (count >= 4)return FIVE;
     if (block == 2)return 0;
+    vector<int> oneblock = { BLOCKED_ONE,BLOCKED_TWO,BLOCKED_THREE,BLOCKED_FOUR };
+    vector<int> noblock = { ONE,TWO,THREE,FOUR};
     if (block == 1)return oneblock[count];
     if (block == 0)return noblock[count];
     return 0;
