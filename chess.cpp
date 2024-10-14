@@ -12,8 +12,6 @@
 using namespace std;
 using namespace std::chrono;
 
-
-
 const double GRID_SIZE_X = 42; // 网格大小
 const double GRID_SIZE_Y = 39.35;
 const int WINDOW_WIDTH = 640; // 窗口宽度
