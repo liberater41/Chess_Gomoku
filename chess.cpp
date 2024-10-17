@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include "chess.h"
 #include <chrono>
+#include <memory>
 
 using namespace std;
 using namespace std::chrono;
@@ -73,167 +74,162 @@ void Drawchess(int X, int Y, bool color) {
 }
 
 
-
-int Count_and_block_to_score(int count, int block) {
-    if (count >= 4)return FIVE;
-    if (block == 2)return 0;
-    vector<int> oneblock = { BLOCKED_ONE,BLOCKED_TWO,BLOCKED_THREE,BLOCKED_FOUR };
-    vector<int> noblock = { ONE,TWO,THREE,FOUR};
-    if (block == 1)return oneblock[count];
-    if (block == 0)return noblock[count];
-    return 0;
-    
-}
-
-int Get_count_and_block_to_score(vector<vector<int>>& board,int x,int y,int dx,int dy,int color){
-    int count = 0, block = 0;
+int Five_pieces_score(int x, int y, int dx, int dy, int color) {
+    int count = 0;
+    int opp_count = 0;
     int opponent = color == 0 ? 1 : 0;
-    for (int i = 1;; i++) {
-        int nx = x + i * dx;
-        int ny = y + i * dy;
-        if (nx >= 0 && nx < BoardSIZE && ny >= 0 && ny < BoardSIZE) {
-            if (board[nx][ny] == color)count++;
-            else if (board[nx][ny] == opponent) {
-                block++;
-                break;
-            }
-            else {
-                break;
-            }
-        }
-        else {
-            block++;
-            break;
-        }
+    for (int i = 0; i < 5; i++) {
+        if (board[x + i * dx][y + i * dy] == color)count++;
+        else if (board[x + i * dx][y + i * dy] == opponent)opp_count++;
+
     }
-    for (int i = 1;; i++) {
-        int nx = x - i * dx;
-        int ny = y - i * dy;
-        if (nx >= 0 && nx < BoardSIZE && ny >= 0 && ny < BoardSIZE) {
-            if (board[nx][ny] == color)count++;
-            else if (board[nx][ny] == opponent) {
-                block++;
-                break;
-            }
-            else {
-                break;
-            }
-        }
-        else {
-            block++;
-            break;
-        }
-    }
-    return Count_and_block_to_score(count, block);
+    if (count == 0 && opp_count == 0) return 0;
+    else if (count != 0 && opp_count != 0) return 0;       
+    else if (count > 0)return noblock[count - 1];
+    else return opp_noblock[opp_count - 1];
 }
 
-int allline_score(vector<vector<int>>& board, int x, int y, int color) {
+int allline_score(vector<vector<int>>& board, int color) {
     int score = 0;
-    score += Get_count_and_block_to_score(board, x, y, 0, 1, color);
-    score += Get_count_and_block_to_score(board, x, y, 1, 0, color);
-    score += Get_count_and_block_to_score(board, x, y, 1, 1, color);
-    score += Get_count_and_block_to_score(board, x, y, 1, -1, color);
+    for (int i = 0; i < BoardSIZE; i++) {
+        for (int j = 0; j < BoardSIZE; j++) {
+            if (j + 4 < BoardSIZE) {
+                score += Five_pieces_score(j, i, 1, 0, color);
+            }
+            if (i + 4 < BoardSIZE && j + 4 < BoardSIZE) {
+                score+= Five_pieces_score(j, i, 1, 1, color);
+            }
+            if (i + 4 < BoardSIZE) {
+                score += Five_pieces_score(j, i, 0, 1, color);
+            }
+            if (i + 4 <BoardSIZE && j - 4 >=0) {
+                score += Five_pieces_score(j, i, -1, 1, color);
+            }
+        }
+    }
+    
     return score;
 }
 
 int best_x, best_y,best_score;
 
-bool checkwin(vector<vector<int>>& board,int x,int y,int color){
-    if (allline_score(board, x, y, color) >= FIVE)return true;
+bool checkwin(vector<vector<int>>& board,int color){
+    for (int i = 0; i < BoardSIZE; i++) {
+        for (int j = 0; j < BoardSIZE; j++) {
+            if (j + 4 < BoardSIZE&&Five_pieces_score(j, i, 1, 0, color)==FIVE) {
+                return true;
+            }
+            if (i + 4 < BoardSIZE && j + 4 < BoardSIZE&&Five_pieces_score(j, i, 1, 1, color)==FIVE) {
+                return true;;
+            }
+            if (i + 4 < BoardSIZE&&Five_pieces_score(j, i, 0, 1, color)==FIVE) {
+                return true;;
+            }
+            if (i + 4 <BoardSIZE && j - 4 >=0&& Five_pieces_score(j, i, -1, 1, color)==FIVE) {
+                return true;;
+            }
+        }
+    }
     return false;
 }
 
-//int Botrun1(vector<vector<int>>& board, int color,int depth,unordered_set<pair<int,int>,pair_hash>& prio) {
-//    if (depth == 0)return 0;
-//    int tempscore=-FIVE,tempx=-1,tempy=-1;
-//    for (pair<int, int> el : prio) {
-//        auto start = high_resolution_clock::now();
-//        int x = el.first, y = el.second;
-//        int score=0;
-//        int opponent = color == 0 ? 1 : 0;
-//        unordered_set<pair<int, int>,pair_hash> deepset=prio;
-//        for(int i=x-1;i<=x+1;i++)
-//            for (int j = y - 1; j <= y + 1; j++) {
-//                if (i >= 0 && i < BoardSIZE && j >= 0 && j < BoardSIZE&&board[i][j]==-1) {
-//                    deepset.insert({i,j});
-//                }
-//        }
-//        deepset.erase({x,y});
-//        score += allline_score(board, x, y, color);
-//        if (score == FIVE)return FIVE;
-//        board[x][y] = color;
-//        score -= Botrun1(board, opponent, depth - 1, deepset);
-//        board[x][y] = -1;
-//        if (depth == DEPTH) {
-//            cout << "(" << x << "," << y << ")" << " " << score << "  ";
-//            auto end = high_resolution_clock::now();
-//            totaltime += end - start;
-//            cout << "[" << totaltime.count() << "]";
-//            totaltime -= totaltime;
-//
-//        }
-//        if (score > tempscore) {
-//            tempscore = score;
-//            tempx = x;
-//            tempy = y;
-//        }
-//       
-//    }
-//    if (depth == DEPTH) {
-//        best_score = tempscore;
-//        best_x = tempx;
-//        best_y = tempy;
-//    }
-//    return tempscore;
-//
-//}
 
-int Botrun(int color, int depth) {
-    if (depth == 0)return 0;
-    int xy, x1, y1, score = -FIVE, best = -FIVE, best_score;
+
+class Node {
+public:   
+    Node* father;
+    int score;
+    bool isMAX;
+    int a;
+    int b;
+    pair<int,int> loc;
+    int sign = 0;
+    Node(Node* father, int score,bool ismax,int a,int b) {
+        this->father = father;
+        this->score = score;
+        this->isMAX = ismax;
+        this->a = a;
+        this->b = b;
+    }
+};
+
+void change_father_node(Node* father, int score,Node* node) {
+    if (father == nullptr)return;
+    if (father->isMAX == 1&&score>father->score) {
+        father->score = score;
+        if (father->father == nullptr && (score > father->a || father->a == -FIVE)) {
+            best_x = node->loc.second;
+            best_y = node->loc.first;
+        }
+        father->a = score>father->a?score: father->a;
+    }
+    else if (father->isMAX == 0 && score < father->score) {
+        father->score = score;
+        father->b = score<father->b?score:father->b;
+    }
+}
+
+bool is_alpha_beta_cut(Node* node) {
+    if (node->isMAX == 1 && node->a >= node->b)return true;
+    else if (node->isMAX == 0 && node->b <= node->a)return true;
+    else return false;
+}
+
+void Botrun(int color, int depth, unique_ptr<Node>& node) {
+    bool child_ismax = node->isMAX == 0 ? 1 : 0;
     int opponent = color == 0 ? 1 : 0;
-    for (xy = 0; xy < BoardSIZE * BoardSIZE; xy++) {
-        x1 = xy % BoardSIZE;
-        y1 = xy / BoardSIZE;
-        if (board[x1][y1] != -1)continue;
-        int sign = 0;
-        for (int i = x1 - 1; i <= x1 + 1; i++) {
-            for (int j = y1 - 1; j <= y1 + 1; j++) {
-                if (i >= 0 && i < BoardSIZE && j >= 0 && j < BoardSIZE && board[i][j] != -1) {
-                    auto start = high_resolution_clock::now();
-                    score = allline_score(board, x1, y1, color);
-                    //score = get_score(x1, y1, color);
-                    if (score >= FIVE)return score;
-
-                    board[x1][y1] = color;
-                    score -= Botrun(opponent, depth - 1);
-                    board[x1][y1] = -1;
-                    if (depth == DEPTH) {
-                        cout << "(" << x1 << "," << y1 << ")" << " " << score << "  ";                       
-                        auto end = high_resolution_clock::now();
-                        totaltime += end - start;
-                        cout << "[" << totaltime.count() << "]";
-                        totaltime -= totaltime;
-                    }
-                        
-                    
-                    sign = 1;
-                    break;
-                }
-            }
-            if (sign)break;
-        }
-
-        if (score > best) {
-            best = score;
-            if (depth == DEPTH) {
-                best_x = x1;
-                best_y = y1;
-            }
-        }
+    if (depth == DEPTH) {
+        int score=allline_score(board, depth%2==0?color:opponent);
+        node->score = score;
+        if (node->isMAX == 1)node->a = score>node->a?score:node->a;
+        else node->b = score<node->b?score:node->b;
+        change_father_node(node->father, score, node.get());
+        return;
+    }
+    else if (checkwin(board, opponent)) {
+        int score = allline_score(board, depth % 2 == 0 ? color : opponent);
+        node->score = score;
+        if (node->isMAX == 1)node->a = score > node->a ? score : node->a;
+        else node->b = score < node->b ? score : node->b;
+        change_father_node(node->father, score, node.get());
+        return;
 
     }
-    return best;
+        
+    
+    bool cutsign = 0;
+    for (int i = 0; i < BoardSIZE; i++) {
+        for (int j = 0; j < BoardSIZE; j++) {
+            if (board[i][j] != -1) {                
+                continue;
+            }
+            if (is_alpha_beta_cut(node.get())) {
+                cutsign = 1;
+                break;
+            }            
+            bool sign = 0;
+            for (int i_ = (0 > i - RADIUS ? 0 : i - RADIUS); i_ <= (BoardSIZE - 1 < i + RADIUS ? BoardSIZE - 1 : i + RADIUS); i_++) {
+                for (int j_ = (0 > j - RADIUS ? 0 : j - RADIUS); j_ <= (BoardSIZE - 1 < j + RADIUS ? BoardSIZE - 1 : j + RADIUS); j_++) {
+                    if (board[i_][j_] != -1) {
+                        board[i][j] = color;
+                        unique_ptr<Node> childnode = make_unique<Node>(node.get(), (child_ismax == 1 ? -FIVE : FIVE), child_ismax, node->a, node->b);
+                        childnode->loc = { i,j };
+                        Botrun(opponent, depth + 1, childnode);
+                        board[i][j] = -1;
+                        sign = 1;
+                        break;
+                    }
+                }
+                if (sign)break;
+            }
+            
+
+        }
+        if (cutsign)break;
+    }
+    if(depth==1)cout << node->loc.second << " " << node->loc.first << "  " << node->score << "   ";
+    change_father_node(node->father, node->score, node.get());
+        
 }
 
 int Bot(vector<vector<int>>& board,int color,int& endsign){
@@ -242,19 +238,14 @@ int Bot(vector<vector<int>>& board,int color,int& endsign){
     best_y = -1;
     best_score = -FIVE;
     //Botrun(board, color,DEPTH,priority);
-    Botrun(color, DEPTH);
+    unique_ptr<Node> root = make_unique<Node>(nullptr,-FIVE,1,-FIVE,FIVE);
+    Botrun(color, 0,root);
     cout << best_x << " " << best_y;
-    board[best_x][best_y] = color;
-    for (int i = best_x - 1; i <= best_x + 1; i++)
-        for (int j = best_y - 1; j <= best_y + 1; j++) {
-            if (i >= 0 && i < BoardSIZE && j >= 0 && j < BoardSIZE && board[i][j] == -1) {
-                priority.insert({ i,j });
-            }
-        }
-    priority.erase({ best_x,best_y });
+    board[best_y][best_x] = color;
+
     GetIntersection(best_x, best_y, intersectX, intersectY);
     Drawchess(intersectX, intersectY, color);
-    if (checkwin(board, best_x, best_y, color)) {
+    if (checkwin(board, color)) {
         cout << "bot win\n";
         settextstyle(40, 0, _T("Arial"));
         outtextxy(280, 600, _T("电脑获胜"));
@@ -296,18 +287,13 @@ void Player_bot(vector<vector<int>>& board,int order ){
             if (msg.x < 15 || msg.x>622 || msg.y < 15 || msg.y>590)continue;
             GetNearestIntersection(msg.x, msg.y, intersectX, intersectY); // 计算交叉点  
             Getcoordinate(x, y, intersectX, intersectY);
-            if (board[x][y] != -1)continue;
-            cout << x << " " << y <<" " << intersectX << " " << intersectY << "  ";
-            board[x][y] = color;
-            for (int i = x - 1; i <= x + 1; i++)
-                for (int j = y - 1; j <= y + 1; j++) {
-                    if (i >= 0 && i < BoardSIZE && j >= 0 && j < BoardSIZE && board[i][j] == -1) {
-                        priority.insert({ i,j });
-                    }
-                }
-            priority.erase({ x,y });
+            if (board[y][x] != -1)continue;
+            
+            board[y][x] = color;            
+            
             Drawchess(intersectX, intersectY, color);
-            if (checkwin(board, x, y, order)) {
+
+            if (checkwin(board, order)) {
                 cout << "player" << order << " win\n";
                 settextstyle(40, 0, _T("Arial"));
                 outtextxy(280, 600, _T("你获胜"));
@@ -361,7 +347,7 @@ void Player_to_player(vector<vector<int>>& board) {
             if (board[x][y] != -1)continue;
             board[x][y] = order;
             Drawchess(intersectX, intersectY, (order == 0) ? 0 : 1);
-            if (checkwin(board, x, y, order)) {
+            if (checkwin(board,order)) {
                 cout << "player" << order << " win\n";
                 settextstyle(40, 0, _T("Arial"));
                 outtextxy(280, 600, (order == 0 ? _T("黑子获胜") : _T("白子获胜")));

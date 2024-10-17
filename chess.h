@@ -3,20 +3,22 @@
 #include <functional>
 #include <vector>
 #define BoardSIZE 15
-#define DEPTH 5
+#define DEPTH 4
+#define RADIUS 1
 
 using namespace std;
 enum
 {
-	ONE = 10,
-	TWO = 100,
-	THREE = 1000,
-	FOUR = 100000,
-	FIVE = 1000000,
-	BLOCKED_ONE = 5,
-	BLOCKED_TWO = 50,
-	BLOCKED_THREE = 500,
-	BLOCKED_FOUR = 50000,
+	ONE = 1,
+	TWO = 30,
+	THREE = 100,
+	FOUR = 10000,
+	FIVE = 100000,
+	OPP_ONE = -1,
+	OPP_TWO = -30,
+	OPP_THREE = -100,
+	OPP_FOUR = -10000,
+	OPP_FIVE = -100000,
 };
 
 struct pair_hash {
@@ -27,8 +29,8 @@ struct pair_hash {
 	}
 };
 
-vector<int> oneblock = { BLOCKED_ONE,BLOCKED_TWO,BLOCKED_THREE,BLOCKED_FOUR };
-vector<int> noblock = { ONE,TWO,THREE,FOUR };
+vector<int> noblock = { ONE,TWO,THREE,FOUR,FIVE };
+vector<int> opp_noblock = { OPP_ONE,OPP_TWO,OPP_THREE,OPP_FOUR,OPP_FIVE };
 
 
 //int get_score(int x, int y, char color)
