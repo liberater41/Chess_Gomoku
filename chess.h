@@ -3,7 +3,7 @@
 #include <functional>
 #include <vector>
 #define BoardSIZE 15
-#define DEPTH 4
+#define DEPTH 5
 #define RADIUS 1
 
 using namespace std;

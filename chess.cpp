@@ -9,6 +9,7 @@
 #include "chess.h"
 #include <chrono>
 #include <memory>
+#include <algorithm>
 
 using namespace std;
 using namespace std::chrono;
@@ -157,7 +158,7 @@ void change_father_node(Node* father, int score,Node* node) {
     if (father == nullptr)return;
     if (father->isMAX == 1&&score>father->score) {
         father->score = score;
-        if (father->father == nullptr && (score > father->a || father->a == -FIVE)) {
+        if (father->father == nullptr && (score > father->a || best_x==-1)) {
             best_x = node->loc.second;
             best_y = node->loc.first;
         }
@@ -173,6 +174,48 @@ bool is_alpha_beta_cut(Node* node) {
     if (node->isMAX == 1 && node->a >= node->b)return true;
     else if (node->isMAX == 0 && node->b <= node->a)return true;
     else return false;
+}
+
+struct pri_point {
+    int i0;
+    int j0;
+    int pri_score;
+};
+
+struct Compare {
+    bool operator()(const pri_point& a, const pri_point& b) {
+        return a.pri_score > b.pri_score;
+    }
+};
+
+vector<pri_point> create_pri(vector<vector<int>>& board, int color) {
+    vector<pri_point> pri;
+    for (int i = 0; i < BoardSIZE; i++) {
+        for (int j = 0; j < BoardSIZE; j++) {
+            if (board[i][j] != -1) {
+                continue;
+            }
+            bool sign = 0;
+            for (int i_ = (0 > i - RADIUS ? 0 : i - RADIUS); i_ <= (BoardSIZE - 1 < i + RADIUS ? BoardSIZE - 1 : i + RADIUS); i_++) {
+                for (int j_ = (0 > j - RADIUS ? 0 : j - RADIUS); j_ <= (BoardSIZE - 1 < j + RADIUS ? BoardSIZE - 1 : j + RADIUS); j_++) {
+                    if (board[i_][j_] != -1) {
+                        pri_point temp;
+                        temp.i0 = i;
+                        temp.j0 = j;
+                        board[i][j] = color;
+                        temp.pri_score = allline_score(board, color);
+                        board[i][j] = -1;
+                        pri.emplace_back(temp);
+                        sign = 1;
+                        break;
+                    }
+                }
+                if (sign)break;
+            }
+        }
+    }
+    sort(pri.begin(), pri.end(), Compare());
+    return pri;
 }
 
 void Botrun(int color, int depth, unique_ptr<Node>& node) {
@@ -194,38 +237,34 @@ void Botrun(int color, int depth, unique_ptr<Node>& node) {
         change_father_node(node->father, score, node.get());
         return;
 
-    }
-        
-    
-    bool cutsign = 0;
-    for (int i = 0; i < BoardSIZE; i++) {
-        for (int j = 0; j < BoardSIZE; j++) {
-            if (board[i][j] != -1) {                
+    }    
+    vector<pri_point> pri;
+    pri = create_pri(board, color);
+    for(auto el:pri)
+    {
+        int i = el.i0;
+        int j = el.j0;
+        if (board[i][j] != -1) {                
                 continue;
-            }
-            if (is_alpha_beta_cut(node.get())) {
-                cutsign = 1;
-                break;
-            }            
-            bool sign = 0;
-            for (int i_ = (0 > i - RADIUS ? 0 : i - RADIUS); i_ <= (BoardSIZE - 1 < i + RADIUS ? BoardSIZE - 1 : i + RADIUS); i_++) {
-                for (int j_ = (0 > j - RADIUS ? 0 : j - RADIUS); j_ <= (BoardSIZE - 1 < j + RADIUS ? BoardSIZE - 1 : j + RADIUS); j_++) {
-                    if (board[i_][j_] != -1) {
-                        board[i][j] = color;
-                        unique_ptr<Node> childnode = make_unique<Node>(node.get(), (child_ismax == 1 ? -FIVE : FIVE), child_ismax, node->a, node->b);
-                        childnode->loc = { i,j };
-                        Botrun(opponent, depth + 1, childnode);
-                        board[i][j] = -1;
-                        sign = 1;
-                        break;
-                    }
-                }
-                if (sign)break;
-            }
-            
-
         }
-        if (cutsign)break;
+        if (is_alpha_beta_cut(node.get())) {
+            break;
+        }            
+        bool sign = 0;
+        for (int i_ = (0 > i - RADIUS ? 0 : i - RADIUS); i_ <= (BoardSIZE - 1 < i + RADIUS ? BoardSIZE - 1 : i + RADIUS); i_++) {
+            for (int j_ = (0 > j - RADIUS ? 0 : j - RADIUS); j_ <= (BoardSIZE - 1 < j + RADIUS ? BoardSIZE - 1 : j + RADIUS); j_++) {
+                if (board[i_][j_] != -1) {
+                    board[i][j] = color;
+                    unique_ptr<Node> childnode = make_unique<Node>(node.get(), (child_ismax == 1 ? -FIVE : FIVE), child_ismax, node->a, node->b);
+                    childnode->loc = { i,j };
+                    Botrun(opponent, depth + 1, childnode);
+                    board[i][j] = -1;
+                    sign = 1;
+                    break;
+                }
+            }
+            if (sign)break;
+        }       
     }
     if(depth==1)cout << node->loc.second << " " << node->loc.first << "  " << node->score << "   ";
     change_father_node(node->father, node->score, node.get());
@@ -240,7 +279,7 @@ int Bot(vector<vector<int>>& board,int color,int& endsign){
     //Botrun(board, color,DEPTH,priority);
     unique_ptr<Node> root = make_unique<Node>(nullptr,-FIVE,1,-FIVE,FIVE);
     Botrun(color, 0,root);
-    cout << best_x << " " << best_y;
+    cout << best_x << " " << best_y<<endl;
     board[best_y][best_x] = color;
 
     GetIntersection(best_x, best_y, intersectX, intersectY);
@@ -277,6 +316,7 @@ void Player_bot(vector<vector<int>>& board,int order ){
         int sign = 0;
         MOUSEMSG msg = GetMouseMsg(); 
         if (msg.uMsg == WM_LBUTTONDOWN) { 
+            //cout << msg.x << " " << msg.y << "  ";
             if (msg.x > 543 && msg.x < 606 && msg.y>593 && msg.y < 625) {
                 cout << "back";
                 
@@ -386,7 +426,25 @@ int main() {
                     closegraph();
                     initgraph(WINDOW_HEIGHT, WINDOW_WIDTH);
                     Drawpng(L"ChessBoard.png", 0, 0);
+                    settextstyle(40, 0, _T("Arial"));
+                    outtextxy(280, 250, _T("先手"));
+                    outtextxy(280, 300, _T("后手"));
                     int order = 0;
+                    while (1) {
+                        MOUSEMSG msg = GetMouseMsg();
+                        if (msg.uMsg == WM_LBUTTONDOWN) {
+                            if (msg.x > 280 && msg.x < 350 && msg.y>251 && msg.y < 290) {
+                                order = 0;
+                                break;
+                            }
+                            else if (msg.x > 280 && msg.x < 350 && msg.y>298 && msg.y < 337) {
+                                order = 1;
+                                break;
+                            }
+                        }
+
+                    }
+                    Drawpng(L"ChessBoard.png", 0, 0);
                     Player_bot(board, order);
                     closegraph();
                     break;
