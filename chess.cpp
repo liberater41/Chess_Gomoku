@@ -10,6 +10,7 @@
 #include <chrono>
 #include <memory>
 #include <algorithm>
+#include <ctime> 
 
 using namespace std;
 using namespace std::chrono;
@@ -25,9 +26,11 @@ unordered_set<pair<int, int>,pair_hash> priority;
 duration<double, std::milli> totaltime(0);
 
 
-void Drawpng(const wchar_t* filename, int x, int y) {
+int Drawpng(const wchar_t* filename, int x, int y) {
     Gdiplus::Image image(filename);
-
+    if (image.GetLastStatus() != Gdiplus::Ok) {
+        return 0;
+    }
     int width = getwidth();
     int height = getheight();
 
@@ -39,6 +42,8 @@ void Drawpng(const wchar_t* filename, int x, int y) {
 
     // 绘制 PNG 图片到指定位置
     graphics.DrawImage(&image, x, y, width, height);
+
+    return 1;
 }
 
 // 初始化 GDI+
@@ -88,6 +93,46 @@ int Five_pieces_score(int x, int y, int dx, int dy, int color) {
     else if (count != 0 && opp_count != 0) return 0;       
     else if (count > 0)return noblock[count - 1];
     else return opp_noblock[opp_count - 1];
+}
+
+bool isblockFour(int x, int y, int color) {
+    const int directions[4][2] = { {0, 1}, {1, 0}, {1, 1}, {1, -1} };
+    for (int d = 0; d < 4; ++d) {
+        int count = 0;
+        int dx = directions[d][0];
+        int dy = directions[d][1];
+
+        for (int i = -4; i <= 4; ++i) {
+            int nx = x + i * dx;
+            int ny = y + i * dy;
+
+            if (nx >= 0 && nx < BoardSIZE && ny >= 0 && ny < BoardSIZE) {
+                if (board[nx][ny] == color) {
+                    ++count;
+                }
+                else {
+                    count = 0;
+                }
+
+                if (count == 4) {
+                    int preX = x + (i - 4) * dx;
+                    int preY = y + (i - 4) * dy;
+                    int postX = x + (i + 1) * dx;
+                    int postY = y + (i + 1) * dy;
+
+                    bool preEmpty = (preX >= 0 && preX < BoardSIZE && preY >= 0 && preY < BoardSIZE && board[preX][preY] == -1);
+                    bool postEmpty = (postX >= 0 && postX < BoardSIZE && postY >= 0 && postY < BoardSIZE && board[postX][postY] == -1);
+
+                    if (preEmpty || postEmpty) {
+                        
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 int allline_score(vector<vector<int>>& board, int color) {
@@ -145,6 +190,8 @@ public:
     int b;
     pair<int,int> loc;
     int sign = 0;
+    bool cut=0;
+    int four=0;
     Node(Node* father, int score,bool ismax,int a,int b) {
         this->father = father;
         this->score = score;
@@ -153,16 +200,51 @@ public:
         this->b = b;
     }
 };
-
+vector<int> score_for_odd;
+double get_odd(int score) {
+    score_for_odd.emplace_back(score);
+    sort(score_for_odd.begin(), score_for_odd.end(),greater<int>());
+    int s = 0,d=score_for_odd[0] - odd_border;
+    for (auto el : score_for_odd) {
+        if (el - d <= 0)continue;
+        else {
+            s += el - d;
+        }
+    }
+    return double(score - d) / s;
+}
 void change_father_node(Node* father, int score,Node* node) {
     if (father == nullptr)return;
-    if (father->isMAX == 1&&score>father->score) {
-        father->score = score;
-        if (father->father == nullptr && (score > father->a || best_x==-1)) {
+    if (father->father == nullptr) {
+        cout << node->loc.second << " " << node->loc.first << "  " << node->score << "   ";
+        if (node->cut)cout << "cut" << endl;
+        if (score - father->score < -odd_border)return;
+        if (score - father->score > odd_border) {
+            score_for_odd.emplace_back(score);
+            father->score = score;
+            father->a = score > father->a ? score : father->a;
             best_x = node->loc.second;
             best_y = node->loc.first;
         }
-        father->a = score>father->a?score: father->a;
+        else {
+            double odd = get_odd(score);
+            
+            int t = rand() % 1000;
+            cout <<"t:"<<t<<" " << "odd:" << odd << endl;
+            if (t < odd * 1000) {
+                father->score = score;
+                father->a = score > father->a ? score : father->a;
+                best_x = node->loc.second;
+                best_y = node->loc.first;
+            }
+            else return;
+                
+        }
+
+    }
+    if (father->isMAX == 1 && (score > father->score )) {        
+        father->score = score;
+        father->a = score>father->a?score: father->a;        
     }
     else if (father->isMAX == 0 && score < father->score) {
         father->score = score;
@@ -171,9 +253,18 @@ void change_father_node(Node* father, int score,Node* node) {
 }
 
 bool is_alpha_beta_cut(Node* node) {
-    if (node->isMAX == 1 && node->a >= node->b)return true;
-    else if (node->isMAX == 0 && node->b <= node->a)return true;
-    else return false;
+    if (node->father == nullptr)return false;
+    if (node->father->father == nullptr) {
+        //cout <<" " << node->a << " " << node->b << " ";
+        if (node->b < node->a-THREE/2)return true;
+        else return false;
+    }
+    else {
+        if (node->isMAX == 1 && node->a > node->b + THREE / 2)return true;
+        else if (node->isMAX == 0 && node->b < node->a - THREE / 2)return true;
+        else return false;
+    }
+
 }
 
 struct pri_point {
@@ -221,7 +312,7 @@ vector<pri_point> create_pri(vector<vector<int>>& board, int color) {
 void Botrun(int color, int depth, unique_ptr<Node>& node) {
     bool child_ismax = node->isMAX == 0 ? 1 : 0;
     int opponent = color == 0 ? 1 : 0;
-    if (depth == DEPTH) {
+    if (depth == DEPTH+2*node.get()->four) {
         int score=allline_score(board, depth%2==0?color:opponent);
         node->score = score;
         if (node->isMAX == 1)node->a = score>node->a?score:node->a;
@@ -231,42 +322,48 @@ void Botrun(int color, int depth, unique_ptr<Node>& node) {
     }
     else if (checkwin(board, opponent)) {
         int score = allline_score(board, depth % 2 == 0 ? color : opponent);
-        node->score = score;
+        node->score = score-depth*THREE*2;
         if (node->isMAX == 1)node->a = score > node->a ? score : node->a;
         else node->b = score < node->b ? score : node->b;
-        change_father_node(node->father, score, node.get());
+        if(depth==1)change_father_node(node->father, 2*FIVE, node.get());
+        else change_father_node(node->father, score, node.get());
         return;
 
     }    
     vector<pri_point> pri;
     pri = create_pri(board, color);
+    if (pri.empty()) {
+        int score = 0;
+        node->score = score - depth * THREE * 2;
+        if (node->isMAX == 1)node->a = score > node->a ? score : node->a;
+        else node->b = score < node->b ? score : node->b;
+        if (depth == 1)change_father_node(node->father, 2 * FIVE, node.get());
+        else change_father_node(node->father, score, node.get());
+        return;
+    }
     for(auto el:pri)
     {
         int i = el.i0;
         int j = el.j0;
-        if (board[i][j] != -1) {                
-                continue;
-        }
         if (is_alpha_beta_cut(node.get())) {
+            node.get()->cut = 1;
             break;
         }            
-        bool sign = 0;
-        for (int i_ = (0 > i - RADIUS ? 0 : i - RADIUS); i_ <= (BoardSIZE - 1 < i + RADIUS ? BoardSIZE - 1 : i + RADIUS); i_++) {
-            for (int j_ = (0 > j - RADIUS ? 0 : j - RADIUS); j_ <= (BoardSIZE - 1 < j + RADIUS ? BoardSIZE - 1 : j + RADIUS); j_++) {
-                if (board[i_][j_] != -1) {
-                    board[i][j] = color;
-                    unique_ptr<Node> childnode = make_unique<Node>(node.get(), (child_ismax == 1 ? -FIVE : FIVE), child_ismax, node->a, node->b);
-                    childnode->loc = { i,j };
-                    Botrun(opponent, depth + 1, childnode);
-                    board[i][j] = -1;
-                    sign = 1;
-                    break;
-                }
-            }
-            if (sign)break;
-        }       
+        board[i][j] = color;
+        unique_ptr<Node> childnode = make_unique<Node>(node.get(), (child_ismax == 1 ? -2*FIVE : 2*FIVE), child_ismax, node->a, node->b);
+        childnode->loc = { i,j };
+        if (depth==0&&isblockFour(i, j, color)) {
+            if (depth == 0)cout << "four: " ;
+            childnode.get()->four = node.get()->four + 1;
+        }
+        else {
+            childnode.get()->four = node.get()->four;
+        }
+        Botrun(opponent, depth + 1, childnode);
+        board[i][j] = -1;
+       
     }
-    if(depth==1)cout << node->loc.second << " " << node->loc.first << "  " << node->score << "   ";
+
     change_father_node(node->father, node->score, node.get());
         
 }
@@ -277,9 +374,10 @@ int Bot(vector<vector<int>>& board,int color,int& endsign){
     best_y = -1;
     best_score = -FIVE;
     //Botrun(board, color,DEPTH,priority);
-    unique_ptr<Node> root = make_unique<Node>(nullptr,-FIVE,1,-FIVE,FIVE);
+    unique_ptr<Node> root = make_unique<Node>(nullptr,-2*FIVE,1,-FIVE*2,FIVE*2);
+    score_for_odd.clear();
     Botrun(color, 0,root);
-    cout << best_x << " " << best_y<<endl;
+    cout << endl << best_x << " " << best_y<<endl;
     board[best_y][best_x] = color;
 
     GetIntersection(best_x, best_y, intersectX, intersectY);
@@ -414,10 +512,14 @@ void Player_to_player(vector<vector<int>>& board) {
 
 int main() {
     ULONG_PTR gdiplusToken;
-    InitGDIPlus(&gdiplusToken);  
+    InitGDIPlus(&gdiplusToken);
+    srand(static_cast<unsigned int>(time(0)));
     while (1) {
         initgraph(WINDOW_HEIGHT, WINDOW_WIDTH);
-        Drawpng(L"MainMenu.png", 0, 0);
+        if (!Drawpng(L"MainMenu.png", 0, 0)) {
+            cout << endl << "fail load image";
+            return 0;
+        }
         int mode;
         while (1) {
             MOUSEMSG msg = GetMouseMsg(); 
@@ -425,7 +527,10 @@ int main() {
                 if (msg.x > 217 && msg.x < 426 && msg.y>382 && msg.y < 434) {
                     closegraph();
                     initgraph(WINDOW_HEIGHT, WINDOW_WIDTH);
-                    Drawpng(L"ChessBoard.png", 0, 0);
+                    if (!Drawpng(L"ChessBoard.png", 0, 0)) {
+                        cout << endl << "fail load image";
+                        return 0;
+                    }
                     settextstyle(40, 0, _T("Arial"));
                     outtextxy(280, 250, _T("先手"));
                     outtextxy(280, 300, _T("后手"));
@@ -444,7 +549,10 @@ int main() {
                         }
 
                     }
-                    Drawpng(L"ChessBoard.png", 0, 0);
+                    if (!Drawpng(L"ChessBoard.png", 0, 0)) {
+                        cout << endl << "fail load image";
+                        return 0;
+                    }
                     Player_bot(board, order);
                     closegraph();
                     break;
@@ -452,7 +560,10 @@ int main() {
                 if (msg.x > 217 && msg.x < 426 && msg.y>444 && msg.y < 494) {
                     closegraph();
                     initgraph(WINDOW_HEIGHT, WINDOW_WIDTH);
-                    Drawpng(L"ChessBoard.png", 0, 0);
+                    if (!Drawpng(L"ChessBoard.png", 0, 0)) {
+                        cout << endl << "fail load image";
+                        return 0;
+                    }
                     Player_to_player(board);
                     closegraph();
                     break;

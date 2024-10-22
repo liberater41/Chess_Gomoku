@@ -9,17 +9,19 @@
 using namespace std;
 enum
 {
-	ONE = 1,
-	TWO = 30,
-	THREE = 100,
-	FOUR = 10000,
-	FIVE = 100000,
-	OPP_ONE = -1,
-	OPP_TWO = -30,
-	OPP_THREE = -100,
-	OPP_FOUR = -10000,
-	OPP_FIVE = -100000,
+	ONE = 10,
+	TWO = 60,
+	THREE = 200,
+	FOUR = 1000,
+	FIVE = 10000,
+	OPP_ONE = -10,
+	OPP_TWO = -90,
+	OPP_THREE = -300,
+	OPP_FOUR = -3000,
+	OPP_FIVE = -10000,
 };
+
+#define odd_border THREE/2
 
 struct pair_hash {
 	template <class T1, class T2>
